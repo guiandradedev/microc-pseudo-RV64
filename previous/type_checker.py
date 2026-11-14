@@ -82,7 +82,7 @@ class TypeChecker:
                     
         if isinstance(stmt, IfStmt):
             condition_type = self._check_expr(stmt.condition, False)
-            if condition_type != TypeName.BOOL:
+            if condition_type is not UNKNOWN_TYPE and condition_type != TypeName.BOOL:
                 self.diagnostics.append(SemanticDiagnostic(
                     SemanticErrorKind.CONDITION_TYPE_MISMATCH,
                     "Condição deve ser um booleano",
@@ -95,7 +95,7 @@ class TypeChecker:
             
         if isinstance(stmt, WhileStmt):
             condition_type = self._check_expr(stmt.condition, False)
-            if condition_type != TypeName.BOOL:
+            if condition_type is not UNKNOWN_TYPE and condition_type != TypeName.BOOL:
                 self.diagnostics.append(SemanticDiagnostic(
                     SemanticErrorKind.CONDITION_TYPE_MISMATCH,
                     "Condição deve ser um booleano",
@@ -120,7 +120,7 @@ class TypeChecker:
                 self.diagnostics.append(SemanticDiagnostic(
                     SemanticErrorKind.RETURN_MISMATCH,
                     "O tipo de retorno não corresponde ao tipo da função.",
-                    stmt.value.span
+                    stmt.span if function.return_type == TypeName.VOID else stmt.value.span
                 ))
             return
 
