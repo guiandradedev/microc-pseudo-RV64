@@ -1,5 +1,7 @@
 """Ponto de implementação do reconhecimento de padrões e custos mínimos."""
 
+import load_previous
+from ast_nodes import CallExpr
 from patterns import *
 
 class Selector:
@@ -49,26 +51,50 @@ class Selector:
 
 
     def _match_pattern(self, node, pattern: Pattern):
+        """Retorna os pares (filho, classe) exigidos, ou None se não combina."""
         # garante que o tipo do nó existe e bate com o tipo do padrão
         if pattern.kind is not None and not isinstance(node, pattern.kind):
             return None
 
-        # garante que o operador do nó existe e bate com o operador do padrão
+        # garante que o operador do nó existe e coincide com o operador do padrão
         if pattern.operator is not None:
-            if not hasattr(node, 'operator'):
-                return None
-            if node.operator != pattern.operator:
+            if getattr(node, "operator", None) != pattern.operator:
                 return None
 
         # garante que o predicado existe e bate com o predicado do padrão
-        if pattern.predicate is not None and not pattern.predicate(node):
+        if pattern.predicate is not None:
+            pred_result = pattern.predicate(node)
+            if pred_result is False or pred_result is None:
+                return None
+            # padrao com predicado sem filhos reconhecendo a subarvore toda
+            if not pattern.children:
+                return ()
+
+        # Args(classe) com filho unico de uma chamada, tem q ter a mesma classe para todos os args
+        if len(pattern.children) == 1 and isinstance(pattern.children[0], Args):
+            if not isinstance(node, CallExpr):
+                return None
+            arg_class = pattern.children[0].result
+            return tuple((arg, arg_class) for arg in node.arguments)
+
+        # pega filhos do no e testa a aridade com o do pattern
+        node_children = children(node)
+        if len(pattern.children) != len(node_children):
             return None
 
-        # garante que os filhos do nó existem e batem com os filhos do padrão
-        if len(children(node)) != len(pattern.children):
-            return None
-        for i, child in enumerate(children(node)):
-            if not self._match_pattern(child, pattern.children[i]):
+        # percorre os filhos do no e especificacoes dos filhos no patters
+        subproblems = []
+        for child, need in zip(node_children, pattern.children):
+            # se pattern exige uma classe, adiciona par (filho, classe) aos subproblemas
+            if isinstance(need, Need):
+                subproblems.append((child, need.result))
+            # se pattern tem subpattern aninhado.
+            elif isinstance(need, Pattern):
+                nested = self._match_pattern(child, need)
+                if nested is None:
+                    return None
+                subproblems.extend(nested)
+            else:
                 return None
-        
-        return True
+
+        return tuple(subproblems)
