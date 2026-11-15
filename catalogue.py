@@ -221,7 +221,7 @@ def catalogue():
         operator=BinaryOperator.MULTIPLY,
         kids=(Need(REG), Need(POW2)),
         cost=1,
-        action="emit_mul_pow2_right",
+        action="emit_mul_pow2",
     )
     _add_rule(
         rules,
@@ -231,7 +231,7 @@ def catalogue():
         operator=BinaryOperator.MULTIPLY,
         kids=(Need(POW2), Need(REG)),
         cost=1,
-        action="emit_mul_pow2_left",
+        action="emit_mul_pow2",
     )
 
     # Comparações em REG
@@ -293,7 +293,7 @@ def catalogue():
         operator=BinaryOperator.NOT_EQUAL,
         kids=(Need(REG), Need(REG)),
         cost=2,
-        action="emit_sne",
+        action="emit_seq",
     )
 
     # Comparações de dois REG para COND
@@ -407,7 +407,7 @@ def catalogue():
         operator=BinaryOperator.LOGICAL_AND,
         kids=(Need(COND), Need(COND)),
         cost=3,
-        action="emit_and_cond_reg",
+        action="emit_logic_reg",
     )
     _add_rule(
         rules,
@@ -417,7 +417,7 @@ def catalogue():
         operator=BinaryOperator.LOGICAL_OR,
         kids=(Need(COND), Need(COND)),
         cost=3,
-        action="emit_or_cond_reg",
+        action="emit_logic_reg",
     )
 
     # Booleanos simples para COND

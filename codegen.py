@@ -300,8 +300,8 @@ class CodeGenerator:
         self.context.emit(Addi(dst, src, -signed_literal(node.right), origin=node.span))
         return dst
 
-    def _emit_mul_pow2(self, node, subproblems, table):
-        # multiplicar por potencia de 2 vira um shift pra esquerda
+    def emit_mul_pow2(self, node, subproblems, table):
+        # multiplicar por potencia de 2 vira um shift pra esquerda, com a potencia em qualquer lado
         src = shift = None
         for child, cls in subproblems:
             if cls == POW2:
@@ -311,12 +311,6 @@ class CodeGenerator:
         dst = self.context.temp()
         self.context.emit(Slli(dst, src, shift, origin=node.span))
         return dst
-
-    def emit_mul_pow2_right(self, node, subproblems, table):
-        return self._emit_mul_pow2(node, subproblems, table)
-
-    def emit_mul_pow2_left(self, node, subproblems, table):
-        return self._emit_mul_pow2(node, subproblems, table)
 
     def emit_slt(self, node, subproblems, table):
         # a < b usa slt direto, a > b inverte os operandos
@@ -338,20 +332,15 @@ class CodeGenerator:
         self.context.emit(Seqz(dst, tmp, origin=node.span))
         return dst
 
-    def _emit_xor_test(self, node, subproblems, table, test):
-        # o xor da zero quando os valores sao iguais, depois testa com seqz ou snez
+    def emit_seq(self, node, subproblems, table):
+        # o xor da zero quando os valores sao iguais, depois testa com seqz no == e snez no !=
         lhs, rhs = self._regs(subproblems, table)
         tmp = self.context.temp()
         self.context.emit(Xor(tmp, lhs, rhs, origin=node.span))
+        test = Seqz if node.operator is BinaryOperator.EQUAL else Snez
         dst = self.context.temp()
         self.context.emit(test(dst, tmp, origin=node.span))
         return dst
-
-    def emit_seq(self, node, subproblems, table):
-        return self._emit_xor_test(node, subproblems, table, Seqz)
-
-    def emit_sne(self, node, subproblems, table):
-        return self._emit_xor_test(node, subproblems, table, Snez)
 
     # para cada comparacao guarda o desvio usado e se precisa inverter os operandos
     _BRANCH = {
@@ -400,13 +389,17 @@ class CodeGenerator:
         self.context.emit(LabelInstr(middle))
         self._sub(right, rcls, table, true_label, false_label)
 
-    def _materialize(self, node, emit_cond):
-        # transforma um cond em valor no registrador, 1 no true e 0 no false
+    def emit_logic_reg(self, node, subproblems, table):
+        # gera o && ou || como cond e transforma em valor no registrador, 1 no true e 0 no false
+        if node.operator is BinaryOperator.LOGICAL_AND:
+            emit_cond = self.emit_and_cond
+        else:
+            emit_cond = self.emit_or_cond
         dst = self.context.temp()
         true_label = self.context.label()
         false_label = self.context.label()
         end_label = self.context.label()
-        emit_cond(true_label, false_label)
+        emit_cond(node, subproblems, table, true_label, false_label)
         self.context.emit(LabelInstr(true_label))
         self.context.emit(Li(dst, 1, origin=node.span))
         self.context.emit(Jump(end_label, origin=node.span))
@@ -414,16 +407,6 @@ class CodeGenerator:
         self.context.emit(Li(dst, 0, origin=node.span))
         self.context.emit(LabelInstr(end_label))
         return dst
-
-    def emit_and_cond_reg(self, node, subproblems, table):
-        return self._materialize(
-            node, lambda t, f: self.emit_and_cond(node, subproblems, table, t, f)
-        )
-
-    def emit_or_cond_reg(self, node, subproblems, table):
-        return self._materialize(
-            node, lambda t, f: self.emit_or_cond(node, subproblems, table, t, f)
-        )
 
     def emit_literal_bool_cond(self, node, subproblems, table, true_label, false_label):
         # literal booleano so pula direto pro rotulo certo
