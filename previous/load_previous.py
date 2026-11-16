@@ -2,6 +2,10 @@
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parent.parent
-PATHS = [str(ROOT), str(ROOT / "previous")]
-sys.path[:] = PATHS + [path for path in sys.path if path not in PATHS]
+
+PROJECT_DIR = str(Path(__file__).resolve().parent)
+PREVIOUS_DIR = str(Path(PROJECT_DIR) / "previous")
+sys.path[:] = [PROJECT_DIR, PREVIOUS_DIR] + [
+    directory for directory in sys.path
+    if directory not in {PROJECT_DIR, PREVIOUS_DIR}
+]
